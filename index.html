@@ -1,0 +1,1887 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>L&D Analytics Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --c1: #2C5545; --c2: #E6E7E6; --c3: #356956;
+    --c4: #4D9479; --c5: #66AD92; --c6: #8DC3AF;
+    --c7: #A4D0BF; --c8: #D1E8E0;
+    --red: #D0021B; --yellow: #F5A623; --bg: #F4F6F5;
+  }
+  body { font-family: 'Segoe UI', sans-serif; display: flex; height: 100vh; background: var(--bg); }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px; min-width: 220px; background: var(--c1);
+    display: flex; flex-direction: column; padding: 0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.15);
+  }
+  .sidebar-logo {
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.15);
+    color: white; font-size: 13px; font-weight: 600;
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .sidebar-logo span { display: block; font-size: 18px; font-weight: 700; color: var(--c7); }
+  .sidebar-nav { flex: 1; padding: 16px 0; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px 20px; color: rgba(255,255,255,0.75);
+    cursor: pointer; font-size: 14px; transition: all 0.2s;
+    border-left: 3px solid transparent;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.08); color: white; }
+  .nav-item.active { background: rgba(255,255,255,0.12); color: white; border-left-color: var(--c5); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .nav-divider { height: 1px; background: rgba(255,255,255,0.1); margin: 8px 20px; }
+  .nav-label { padding: 8px 20px 4px; font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
+  .sidebar-user { padding: 16px 20px; border-top: 1px solid rgba(255,255,255,0.15); color: rgba(255,255,255,0.8); font-size: 13px; }
+  .sidebar-user strong { display: block; color: white; }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar {
+    background: white; padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--c2); box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .topbar-title { font-size: 16px; font-weight: 600; color: var(--c1); }
+  .topbar-filters { display: flex; gap: 10px; align-items: center; }
+  .filter-select {
+    padding: 6px 12px; border: 1px solid var(--c6);
+    border-radius: 6px; font-size: 13px; color: var(--c1);
+    background: var(--c8); cursor: pointer;
+  }
+  .topbar-updated { font-size: 12px; color: #999; }
+  .content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+
+  /* TABS */
+  .tab-page { display: none; }
+  .tab-page.active { display: block; }
+
+  /* KPI CARDS */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi-card {
+    background: white; border-radius: 12px; padding: 20px;
+    box-shadow: 0 2px 8px rgba(44,85,69,0.08);
+    border-top: 4px solid var(--c4);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(44,85,69,0.12); }
+  .kpi-card.alert { border-top-color: var(--red); }
+  .kpi-card.warning { border-top-color: var(--yellow); }
+  .kpi-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .kpi-value { font-size: 36px; font-weight: 700; color: var(--c1); line-height: 1; margin-bottom: 4px; }
+  .kpi-sub { font-size: 12px; color: #999; margin-bottom: 12px; }
+  .kpi-divider { height: 1px; background: var(--c8); margin: 10px 0; }
+  .kpi-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; font-size: 13px; }
+  .kpi-row-label { color: #666; }
+  .kpi-row-val { font-weight: 600; color: var(--c1); }
+  .kpi-bar-wrap { height: 6px; background: var(--c8); border-radius: 3px; margin-top: 3px; margin-bottom: 8px; }
+  .kpi-bar { height: 6px; border-radius: 3px; background: var(--c4); }
+  .kpi-delta { font-size: 12px; color: var(--c3); font-weight: 600; }
+  .kpi-delta.down { color: var(--red); }
+
+  /* SECTION */
+  .section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(44,85,69,0.06); }
+  .section-title { font-size: 14px; font-weight: 600; color: var(--c1); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section-title::before { content: ''; display: block; width: 3px; height: 16px; background: var(--c4); border-radius: 2px; }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .data-table th { text-align: left; padding: 8px 12px; font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--c8); }
+  .data-table td { padding: 10px 12px; border-bottom: 1px solid var(--c8); }
+  .data-table tr:hover td { background: var(--c8); cursor: pointer; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge.green { background: #E8F5E9; color: #2E7D32; }
+  .badge.yellow { background: #FFF8E1; color: #F57F17; }
+  .badge.red { background: #FFEBEE; color: #C62828; }
+
+  /* CHART PLACEHOLDER */
+  .chart-placeholder {
+    height: 180px; background: linear-gradient(135deg, var(--c8) 0%, var(--c7) 100%);
+    border-radius: 8px; display: flex; align-items: center; justify-content: center;
+    color: var(--c3); font-size: 13px; position: relative; overflow: hidden;
+  }
+  .chart-line { position: absolute; bottom: 0; left: 0; right: 0; height: 100%; }
+
+  /* TWO COLS */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+
+  /* ALERT BANNER */
+  .alert-banner {
+    background: #FFF3CD; border: 1px solid #FFCC02; border-radius: 10px;
+    padding: 14px 18px; margin-bottom: 20px;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+  }
+  .alert-item { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; }
+  .alert-dot { width: 8px; height: 8px; border-radius: 50%; }
+  .alert-dot.red { background: var(--red); }
+  .alert-dot.orange { background: var(--yellow); }
+  .alert-dot.blue { background: #2196F3; }
+
+  /* FUNNEL */
+  .funnel { display: flex; flex-direction: column; gap: 8px; }
+  .funnel-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .funnel-label { width: 140px; color: #555; text-align: right; }
+  .funnel-bar-wrap { flex: 1; height: 28px; background: var(--c8); border-radius: 4px; overflow: hidden; position: relative; }
+  .funnel-bar { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 10px; color: white; font-weight: 600; font-size: 12px; transition: width 0.8s ease; }
+  .funnel-num { width: 50px; color: #666; font-weight: 600; }
+
+  /* GANTT */
+  .gantt { font-size: 12px; }
+  .gantt-header { display: grid; grid-template-columns: 200px repeat(8, 1fr); gap: 2px; margin-bottom: 6px; color: #888; font-weight: 600; }
+  .gantt-row { display: grid; grid-template-columns: 200px repeat(8, 1fr); gap: 2px; margin-bottom: 6px; align-items: center; }
+  .gantt-name { font-size: 12px; color: var(--c1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .gantt-cell { height: 22px; border-radius: 3px; }
+  .gantt-bar { background: var(--c4); border-radius: 3px; height: 22px; display: flex; align-items: center; padding: 0 6px; color: white; font-size: 11px; white-space: nowrap; overflow: hidden; }
+  .gantt-bar.completed { background: var(--c3); }
+  .gantt-bar.new { background: #90CAF9; color: #1565C0; }
+  .gantt-bar.review { background: #CE93D8; color: #6A1B9A; }
+
+  /* SCATTER PLACEHOLDER */
+  .scatter { height: 220px; background: var(--c8); border-radius: 8px; position: relative; overflow: hidden; }
+  .scatter-dot {
+    position: absolute; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; color: white; font-weight: 600; cursor: pointer;
+    transition: transform 0.2s;
+  }
+  .scatter-dot:hover { transform: scale(1.2); }
+    .scatter-axis-x { position: absolute; bottom: 8px; left: 0; right: 0; text-align: center; font-size: 11px; color: #888; }
+  .scatter-axis-y { position: absolute; top: 0; bottom: 0; left: 8px; display: flex; align-items: center; font-size: 11px; color: #888; writing-mode: vertical-rl; transform: rotate(180deg); }
+
+  /* HEATMAP */
+  .heatmap { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .heatmap th { padding: 8px; text-align: center; color: #666; font-weight: 600; font-size: 11px; }
+  .heatmap td { padding: 10px 8px; text-align: center; border-radius: 4px; font-weight: 600; font-size: 13px; margin: 2px; }
+  .hm-high { background: var(--c3); color: white; }
+  .hm-mid { background: var(--c5); color: white; }
+  .hm-low { background: var(--c7); color: var(--c1); }
+  .hm-label { text-align: left !important; color: var(--c1); font-weight: 600; }
+
+  /* SEGMENTS */
+  .segments { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .segment-card { border-radius: 8px; padding: 14px; }
+  .segment-card.s1 { background: #E8F5E9; border-left: 4px solid #2E7D32; }
+  .segment-card.s2 { background: #E3F2FD; border-left: 4px solid #1565C0; }
+  .segment-card.s3 { background: #FFF8E1; border-left: 4px solid #F57F17; }
+  .segment-card.s4 { background: #FFEBEE; border-left: 4px solid #C62828; }
+  .segment-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .segment-pct { font-size: 22px; font-weight: 700; }
+  .segment-desc { font-size: 11px; color: #666; margin-top: 4px; }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5); z-index: 1000;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: white; border-radius: 16px; padding: 32px;
+    max-width: 380px; width: 90%; text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+  }
+  .modal-icon { font-size: 48px; margin-bottom: 16px; }
+  .modal-title { font-size: 20px; font-weight: 700; color: var(--c1); margin-bottom: 8px; }
+  .modal-text { font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 20px; }
+  .modal-contact { background: var(--c8); border-radius: 8px; padding: 12px; margin-bottom: 20px; font-size: 13px; }
+  .modal-contact strong { display: block; color: var(--c1); margin-bottom: 4px; }
+  .modal-btns { display: flex; gap: 10px; justify-content: center; }
+  .btn { padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: all 0.2s; }
+  .btn-outline { background: white; border: 1px solid var(--c4); color: var(--c1); }
+  .btn-primary { background: var(--c1); color: white; }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+
+  /* CARD DETAIL */
+  .detail-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(44,85,69,0.08); }
+  .status-flow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+  .status-step { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; background: var(--c8); color: var(--c1); }
+  .status-step.active { background: var(--c3); color: white; }
+  .status-arrow { color: #ccc; font-size: 12px; }
+  .changelog { margin-top: 12px; }
+  .changelog-item { display: flex; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--c8); font-size: 12px; }
+  .changelog-time { color: #999; white-space: nowrap; min-width: 110px; }
+  .changelog-text { color: #555; }
+
+  /* LOAD BAR */
+  .budget-bar-wrap { height: 12px; background: var(--c8); border-radius: 6px; overflow: hidden; margin: 8px 0; }
+  .budget-bar { height: 12px; border-radius: 6px; background: linear-gradient(90deg, var(--c3), var(--c5)); }
+
+  /* RESPONSIVE */
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .kpi-grid { grid-template-columns: 1fr 1fr; }
+    .two-col, .three-col { grid-template-columns: 1fr; }
+    .gantt-header, .gantt-row { grid-template-columns: 140px repeat(4, 1fr); }
+    .gantt-header span:nth-child(n+6), .gantt-row div:nth-child(n+6) { display: none; }
+  }
+  @media (max-width: 480px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <div class="sidebar-logo">
+    <span>L&D Analytics</span>
+    Дашборд обучения
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-label">Разделы</div>
+    <div class="nav-item active" onclick="showTab('hrd', this)">
+      <span class="icon">📊</span> Управленческий
+    </div>
+    <div class="nav-item" onclick="showTab('ld', this)">
+      <span class="icon">⚙️</span> Операционный
+    </div>
+    <div class="nav-item" onclick="showTab('analytics', this)">
+      <span class="icon">🔬</span> Аналитический
+    </div>
+    <div class="nav-divider"></div>
+    <div class="nav-label">Система</div>
+    <div class="nav-item" onclick="showTab('alerts', this)">
+      <span class="icon">🔔</span> Алерты
+      <span style="margin-left:auto;background:#D0021B;color:white;border-radius:10px;padding:1px 7px;font-size:11px;">7</span>
+    </div>
+    <div class="nav-item" onclick="showTab('settings', this)">
+      <span class="icon">⚙️</span> Настройки
+    </div>
+  </nav>
+  <div class="sidebar-user">
+    <strong>Низовцева</strong>
+    Администратор L&D
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-title" id="page-title">📊 Управленческий дашборд</div>
+    <div class="topbar-filters">
+      <select class="filter-select">
+        <option>Кв. 2 2026</option>
+        <option>Кв. 1 2026</option>
+        <option>2025 год</option>
+      </select>
+      <select class="filter-select">
+        <option>Все офисы</option>
+        <option>Санкт-Петербург</option>
+        <option>Москва</option>
+        <option>Новосибирск</option>
+        <option>Площадки</option>
+      </select>
+    </div>
+    <div class="topbar-updated">Обновлено: 18.05.2026 13:45</div>
+  </div>
+
+  <div class="content">
+
+    <!-- ==================== ВКЛАДКА HRD ==================== -->
+    <div class="tab-page active" id="tab-hrd">
+
+      <!-- KPI КАРТОЧКИ -->
+      <div class="kpi-grid">
+
+        <!-- КАРТОЧКА 1: ОХВАТ -->
+        <div class="kpi-card">
+          <div class="kpi-label">Охват обучением</div>
+          <div class="kpi-value">74%</div>
+          <div class="kpi-sub">723 из 974 сотрудников</div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Обязательное</span>
+            <span class="kpi-row-val">68%</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:68%"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">По желанию</span>
+            <span class="kpi-row-val">31%</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:31%;background:var(--c6)"></div></div>
+          <div class="kpi-delta">↑ +4% к прошлому периоду</div>
+        </div>
+
+        <!-- КАРТОЧКА 2: НОВЫЕ КУРСЫ -->
+        <div class="kpi-card">
+          <div class="kpi-label">Новые курсы за период</div>
+          <div class="kpi-value">12</div>
+          <div class="kpi-sub">создано в Teachbase</div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Внутренних</span>
+            <span class="kpi-row-val">9</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:75%"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">С тестом</span>
+            <span class="kpi-row-val">8</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:67%;background:var(--c5)"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">С обратной связью</span>
+            <span class="kpi-row-val">5</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:42%;background:var(--c6)"></div></div>
+          <div class="kpi-delta">↑ +3 к прошлому периоду</div>
+        </div>
+
+        <!-- КАРТОЧКА 3: СРЕДНИЙ БАЛЛ -->
+        <div class="kpi-card">
+          <div class="kpi-label">Средний балл по тестам</div>
+          <div class="kpi-value">78.4</div>
+          <div class="kpi-sub">из 100 возможных</div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Обязательные</span>
+            <span class="kpi-row-val">76.2</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:76%"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">По желанию</span>
+            <span class="kpi-row-val">81.9</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:82%;background:var(--c5)"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Сдали с 1й попытки</span>
+            <span class="kpi-row-val">71%</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:71%;background:var(--c6)"></div></div>
+          <div class="kpi-delta">↑ +2.1 к прошлому периоду</div>
+        </div>
+
+        <!-- КАРТОЧКА 4: БЮДЖЕТ -->
+        <div class="kpi-card warning">
+          <div class="kpi-label">Бюджет обучения</div>
+          <div class="kpi-value">82%</div>
+          <div class="kpi-sub">4.1М из 5.0М ₽ израсходовано</div>
+          <div class="budget-bar-wrap">
+            <div class="budget-bar" style="width:82%"></div>
+          </div>
+          <div class="kpi-divider"></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Внешнее обучение</span>
+            <span class="kpi-row-val">3.2М ₽</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:78%"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Внутреннее</span>
+            <span class="kpi-row-val">0.9М ₽</span>
+          </div>
+          <div class="kpi-bar-wrap"><div class="kpi-bar" style="width:22%;background:var(--c5)"></div></div>
+          <div class="kpi-row">
+            <span class="kpi-row-label">Остаток</span>
+            <span class="kpi-row-val" style="color:var(--yellow)">0.9М ₽</span>
+          </div>
+          <div class="kpi-delta" style="color:var(--yellow)">⚠ До конца периода 44 дня</div>
+        </div>
+      </div>
+
+      <!-- РЕЙТИНГ ПОДРАЗДЕЛЕНИЙ -->
+      <div class="two-col">
+        <div class="section">
+          <div class="section-title">Рейтинг подразделений по охвату</div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Подразделение</th>
+                <th>Охват</th>
+                <th>Балл</th>
+                <th>Просрочки</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>🏢 Проектирование</td>
+                <td><strong>94%</strong></td>
+                <td>82.1</td>
+                <td>0</td>
+                <td><span class="badge green">Норма</span></td>
+              </tr>
+              <tr>
+                <td>💼 Консалтинг</td>
+                <td><strong>91%</strong></td>
+                <td>79.4</td>
+                <td>2</td>
+                <td><span class="badge green">Норма</span></td>
+              </tr>
+              <tr>
+                <td>🔍 Стройконтроль</td>
+                <td><strong>78%</strong></td>
+                <td>74.2</td>
+                <td>8</td>
+                <td><span class="badge yellow">Внимание</span></td>
+              </tr>
+              <tr>
+                <td>🏛 Административный</td>
+                <td><strong>71%</strong></td>
+                <td>77.8</td>
+                <td>5</td>
+                <td><span class="badge yellow">Внимание</span></td>
+              </tr>
+              <tr>
+                <td>🏗 Площадки</td>
+                <td><strong>54%</strong></td>
+                <td>68.1</td>
+                <td>23</td>
+                <td><span class="badge red">Риск</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- ДИНАМИКА -->
+        <div class="section">
+          <div class="section-title">Динамика охвата обучением</div>
+          <svg width="100%" height="180" viewBox="0 0 400 180">
+            <defs>
+              earGradient id="grad1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#4D9479" stop-opacity="0.3"/>
+                <stop offset="100%" stop-color="#4D9479" stop-opacity="0"/>
+              </linearGradient>
+            </defs>
+            <!-- Grid -->
+            e x1="40" y1="10" x2="40" y2="150" stroke="#E6E7E6" stroke-width="1"/>
+            e x1="40" y1="150" x2="390" y2="150" stroke="#E6E7E6" stroke-width="1"/>
+            e x1="40" y1="110" x2="390" y2="110" stroke="#E6E7E6" stroke-width="0.5" stroke-dasharray="4"/>
+            e x1="40" y1="80" x2="390" y2="80" stroke="#E6E7E6" stroke-width="0.5" stroke-dasharray="4"/>
+            e x1="40" y1="50" x2="390" y2="50" stroke="#E6E7E6" stroke-width="0.5" stroke-dasharray="4"/>
+            <!-- Labels Y -->
+            <text x="35" y="153" text-anchor="end" font-size="10" fill="#999">40%</text>
+            <text x="35" y="113" text-anchor="end" font-size="10" fill="#999">60%</text>
+            <text x="35" y="83" text-anchor="end" font-size="10" fill="#999">75%</text>
+            <text x="35" y="53" text-anchor="end" font-size="10" fill="#999">90%</text>
+            <!-- Обязательные -->
+            <polyline points="60,130 105,120 150,108 195,95 240,88 285,78 330,72 375,65"
+              fill="none" stroke="#2C5545" stroke-width="2.5" stroke-linejoin="round"/>
+            <!-- По желанию -->
+            <polyline points="60,145 105,138 150,135 195,130 240,125 285,118 330,112 375,105"
+              fill="none" stroke="#66AD92" stroke-width="2" stroke-dasharray="6,3" stroke-linejoin="round"/>
+            <!-- Dots обязательные -->
+            ircle cx="375" cy="65" r="4" fill="#2C5545"/>
+            ircle cx="285" cy="78" r="3" fill="#2C5545"/>
+            <!-- Labels X -->
+            <text x="60" y="165" text-anchor="middle" font-size="10" fill="#999">Авг</text>
+            <text x="105" y="165" text-anchor="middle" font-size="10" fill="#999">Сен</text>
+            <text x="150" y="165" text-anchor="middle" font-size="10" fill="#999">Окт</text>
+            <text x="195" y="165" text-anchor="middle" font-size="10" fill="#999">Ноя</text>
+            <text x="240" y="165" text-anchor="middle" font-size="10" fill="#999">Дек</text>
+            <text x="285" y="165" text-anchor="middle" font-size="10" fill="#999">Янв</text>
+            <text x="330" y="165" text-anchor="middle" font-size="10" fill="#999">Фев</text>
+            <text x="375" y="165" text-anchor="middle" font-size="10" fill="#999">Мар</text>
+            <!-- Legend -->
+            <rect x="45" y="172" width="12" height="3" fill="#2C5545" rx="1"/>
+            <text x="62" y="177" font-size="10" fill="#666">Обязательные</text>
+            e x1="130" y1="173" x2="142" y2="173" stroke="#66AD92" stroke-width="2" stroke-dasharray="4,2"/>
+            <text x="147" y="177" font-size="10" fill="#666">По желанию</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+    <!-- ==================== ВКЛАДКА L&D ==================== -->
+    <div class="tab-page" id="tab-ld">
+
+      <!-- АЛЕРТ ПАНЕЛЬ -->
+      <div class="alert-banner">
+        <strong style="color:#555;font-size:13px;">🔔 Требуют внимания:</strong>
+        <div class="alert-item">
+          <div class="alert-dot red"></div>
+          <span style="color:#C62828">Просрочено: 89 сотрудников</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-dot orange"></div>
+          <span style="color:#E65100">Истекает через 7 дней: 34 сотрудника</span>
+        </div>
+        <div class="alert-item">
+          <div class="alert-dot blue"></div>
+          <span style="color:#1565C0">Зависших заявок: 7 штук</span>
+        </div>
+        <button class="btn btn-outline" style="margin-left:auto;font-size:12px;padding:6px 14px"
+          onclick="showOverdue()">Открыть список →</button>
+      </div>
+
+      <div class="two-col">
+
+        <!-- ВОРОНКА -->
+        <div class="section">
+          <div class="section-title">Воронка обязательного обучения</div>
+          <div class="funnel">
+            <div class="funnel-row">
+              <div class="funnel-label">Назначено</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:100%;background:var(--c3)">974</div>
+              </div>
+              <div class="funnel-num">974</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-label">Начато</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:76%;background:var(--c4)">743</div>
+              </div>
+              <div class="funnel-num">743</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-label">В процессе</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:55%;background:var(--c5)">534</div>
+              </div>
+              <div class="funnel-num">534</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-label">Завершено</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:43%;background:var(--c6)">421</div>
+              </div>
+              <div class="funnel-num">421</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-label">Тест сдан</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:40%;background:var(--c7);color:var(--c1)">389</div>
+              </div>
+              <div class="funnel-num">389</div>
+            </div>
+            <div class="funnel-row">
+              <div class="funnel-label" style="color:var(--c3);font-weight:700">✅ В срок</div>
+              <div class="funnel-bar-wrap">
+                <div class="funnel-bar" style="width:34%;background:var(--c1)">331</div>
+              </div>
+              <div class="funnel-num" style="color:var(--c1);font-weight:700">331</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- МОЯ НАГРУЗКА -->
+        <div class="section">
+          <div class="section-title">Нагрузка команды L&D</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+            <div style="background:var(--c8);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase">Низовцева</div>
+              <div style="font-size:28px;font-weight:700;color:var(--c1)">8</div>
+              <div style="font-size:12px;color:#666">заявок в работе</div>
+              <div class="kpi-divider"></div>
+              <div style="font-size:12px;color:#555">В процессе: <strong>5</strong></div>
+              <div style="font-size:12px;color:#555">На согласовании: <strong>2</strong></div>
+              <div style="font-size:12px;color:var(--red)">Просрочено: <strong>1</strong></div>
+            </div>
+            <div style="background:var(--c8);border-radius:10px;padding:16px;text-align:center">
+              <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase">Коллега</div>
+              <div style="font-size:28px;font-weight:700;color:var(--c1)">6</div>
+              <div style="font-size:12px;color:#666">заявок в работе</div>
+              <div class="kpi-divider"></div>
+              <div style="font-size:12px;color:#555">В процессе: <strong>4</strong></div>
+              <div style="font-size:12px;color:#555">На согласовании: <strong>2</strong></div>
+              <div style="font-size:12px;color:var(--c3)">Просрочено: <strong>0</strong></div>
+            </div>
+          </div>
+          <!-- Активность по офисам -->
+          <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:8px;text-transform:uppercase">Активность по офисам</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="width:100px;color:#555">Санкт-Петербург</span>
+              <div style="flex:1;height:8px;background:var(--c8);border-radius:4px;overflow:hidden">
+                <div style="width:88%;height:100%;background:var(--c3);border-radius:4px"></div>
+              </div>
+              <span style="width:30px;text-align:right;font-weight:600;color:var(--c1)">88%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="width:100px;color:#555">Москва</span>
+              <div style="flex:1;height:8px;background:var(--c8);border-radius:4px;overflow:hidden">
+                <div style="width:81%;height:100%;background:var(--c4);border-radius:4px"></div>
+              </div>
+              <span style="width:30px;text-align:right;font-weight:600;color:var(--c1)">81%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="width:100px;color:#555">Новосибирск</span>
+              <div style="flex:1;height:8px;background:var(--c8);border-radius:4px;overflow:hidden">
+                <div style="width:74%;height:100%;background:var(--c5);border-radius:4px"></div>
+              </div>
+              <span style="width:30px;text-align:right;font-weight:600;color:var(--c1)">74%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+              <span style="width:100px;color:#555">Площадки</span>
+              <div style="flex:1;height:8px;background:var(--c8);border-radius:4px;overflow:hidden">
+                <div style="width:54%;height:100%;background:#F5A623;border-radius:4px"></div>
+              </div>
+              <span style="width:30px;text-align:right;font-weight:600;color:var(--yellow)">54%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ДИАГРАММА ГАНТА -->
+      <div class="section">
+        <div class="section-title">Трекер заявок — Диаграмма Ганта</div>
+        <div style="overflow-x:auto">
+          <div class="gantt">
+            <div class="gantt-header">
+              <span style="padding:4px 8px">Заявка / Сотрудник</span>
+              <span style="text-align:center;padding:4px">Апр</span>
+              <span style="text-align:center;padding:4px">Май</span>
+              <span style="text-align:center;padding:4px">Июн</span>
+              <span style="text-align:center;padding:4px">Июл</span>
+              <span style="text-align:center;padding:4px">Авг</span>
+              <span style="text-align:center;padding:4px">Сен</span>
+              <span style="text-align:center;padding:4px">Окт</span>
+              <span style="text-align:center;padding:4px">Ноя</span>
+            </div>
+            <div class="gantt-row" onclick="showRequestDetail()">
+              <div class="gantt-name" title="Петров / Agile управление">📋 Петров / Agile</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-bar completed" style="grid-column:span 2">✅ Завершено</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+            </div>
+            <div class="gantt-row" onclick="showRequestDetail()">
+              <div class="gantt-name" title="Команда / BIM Advanced">🏗 Команда / BIM Adv.</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-bar" style="grid-column:span 3;background:var(--c4)">🔵 В процессе</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+            </div>
+            <div class="gantt-row" onclick="showRequestDetail()">
+              <div class="gantt-name" title="Сидорова / Охрана труда">⚠️ Сидорова / ОТ и ПБ</div>
+              <div class="gantt-bar completed" style="grid-column:span 2">✅ Завершено</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+            </div>
+            <div class="gantt-row" onclick="showRequestDetail()">
+              <div class="gantt-name" title="Новикова / Excel Advanced">📊 Новикова / Excel Adv.</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-bar new" style="grid-column:span 2">🔵 Согласование</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+            </div>
+            <div class="gantt-row" onclick="showRequestDetail()">
+              <div class="gantt-name" title="Козлов / PMP Certification">🏆 Козлов / PMP Cert.</div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-cell"></div>
+              <div class="gantt-bar review" style="grid-column:span 3">🟣 Планируется</div>
+              <div class="gantt-cell"></div>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:16px;margin-top:12px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <div style="width:16px;height:8px;background:var(--c3);border-radius:2px"></div>
+            <span style="color:#666">Завершено</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <div style="width:16px;height:8px;background:var(--c4);border-radius:2px"></div>
+            <span style="color:#666">В процессе</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <div style="width:16px;height:8px;background:#90CAF9;border-radius:2px"></div>
+            <span style="color:#666">Согласование</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+            <div style="width:16px;height:8px;background:#CE93D8;border-radius:2px"></div>
+            <span style="color:#666">Планируется</span>
+          </div>
+          <span style="color:#999;font-size:12px;margin-left:auto">
+            💡 Нажмите на строку для деталей
+          </span>
+        </div>
+      </div>
+
+      <!-- ТОП КУРСОВ -->
+      <div class="two-col">
+        <div class="section">
+          <div class="section-title">🔥 Топ-5 популярных курсов</div>
+                    <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:var(--c7);width:24px">1</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">BIM Основы</div>
+                <div style="font-size:11px;color:#888">312 участников · ★ 4.8</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:95%;height:4px;background:var(--c3);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge green">Обязат.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:var(--c7);width:24px">2</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">AutoCAD продвинутый</div>
+                <div style="font-size:11px;color:#888">287 участников · ★ 4.6</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:88%;height:4px;background:var(--c4);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge green">По жел.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:var(--c7);width:24px">3</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Soft Skills: коммуникации</div>
+                <div style="font-size:11px;color:#888">201 участник · ★ 4.5</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:75%;height:4px;background:var(--c5);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge green">По жел.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:var(--c7);width:24px">4</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Охрана труда и ПБ</div>
+                <div style="font-size:11px;color:#888">198 участников · ★ 3.9</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:72%;height:4px;background:var(--c6);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge yellow">Обязат.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:var(--c7);width:24px">5</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Управление проектами</div>
+                <div style="font-size:11px;color:#888">167 участников · ★ 4.7</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:65%;height:4px;background:var(--c6);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge green">По жел.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- АНТИРЕЙТИНГ -->
+        <div class="section">
+          <div class="section-title">❄️ Низкий охват — требуют внимания</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:#FFCDD2;width:24px">1</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Охрана труда v2</div>
+                <div style="font-size:11px;color:#888">12% охват · ★ 2.1</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:12%;height:4px;background:var(--red);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge red">Обязат.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:#FFCDD2;width:24px">2</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Документооборот</div>
+                <div style="font-size:11px;color:#888">18% охват · ★ 2.8</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:18%;height:4px;background:#FF7043;border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge red">Обязат.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:#FFCDD2;width:24px">3</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Excel продвинутый</div>
+                <div style="font-size:11px;color:#888">21% охват · ★ 3.1</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:21%;height:4px;background:var(--yellow);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge yellow">По жел.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:#FFCDD2;width:24px">4</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Корп. этика и ценности</div>
+                <div style="font-size:11px;color:#888">24% охват · ★ 3.4</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:24%;height:4px;background:var(--yellow);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge yellow">Обязат.</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:18px;font-weight:800;color:#FFCDD2;width:24px">5</span>
+              <div style="flex:1">
+                <div style="font-size:13px;font-weight:600;color:var(--c1)">Ревит базовый</div>
+                <div style="font-size:11px;color:#888">29% охват · ★ 3.7</div>
+                <div style="height:4px;background:var(--c8);border-radius:2px;margin-top:4px">
+                  <div style="width:29%;height:4px;background:var(--yellow);border-radius:2px"></div>
+                </div>
+              </div>
+              <span class="badge yellow">По жел.</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА АНАЛИТИКА ==================== -->
+    <div class="tab-page" id="tab-analytics">
+
+      <div class="two-col">
+        <!-- SCATTER -->
+        <div class="section">
+          <div class="section-title">Охват обучением vs Текучесть</div>
+          <div class="scatter">
+            <div class="scatter-axis-y">% текучести →</div>
+            <div class="scatter-dot" style="width:60px;height:60px;background:var(--red);opacity:0.85;left:15%;top:15%;font-size:11px" title="Площадки: охват 54%, текучесть 18%">Площадки</div>
+            <div class="scatter-dot" style="width:44px;height:44px;background:var(--yellow);opacity:0.85;left:38%;top:35%;font-size:10px" title="Стройконтроль">Стройк.</div>
+            <div class="scatter-dot" style="width:38px;height:38px;background:var(--yellow);opacity:0.85;left:45%;top:45%;font-size:10px" title="Административный">Админ.</div>
+            <div class="scatter-dot" style="width:36px;height:36px;background:var(--c4);opacity:0.85;left:62%;top:60%;font-size:10px" title="Консалтинг">Консалт.</div>
+            <div class="scatter-dot" style="width:32px;height:32px;background:var(--c3);opacity:0.85;left:78%;top:72%;font-size:10px" title="Проектирование">Проект.</div>
+            <div class="scatter-axis-x">% охвата обучением →</div>
+          </div>
+          <div style="margin-top:10px;padding:10px;background:var(--c8);border-radius:8px;font-size:13px">
+            ⚡ <strong>Корреляция r = −0.67</strong> — умеренная отрицательная связь:
+            чем выше охват обучением, тем ниже текучесть
+          </div>
+        </div>
+
+        <!-- СЕГМЕНТЫ LEARNERS -->
+        <div class="section">
+          <div class="section-title">Сегменты сотрудников по активности</div>
+          <div class="segments">
+            <div class="segment-card s1">
+              <div class="segment-title">🏆 Лидеры</div>
+              <div class="segment-pct" style="color:#2E7D32">18%</div>
+              <div class="segment-desc">8+ курсов/год<br>Балл > 85<br>Стаж 3–7 лет</div>
+            </div>
+            <div class="segment-card s2">
+              <div class="segment-title">📚 Активные</div>
+              <div class="segment-pct" style="color:#1565C0">34%</div>
+              <div class="segment-desc">4–7 курсов/год<br>Балл 70–85<br>Разный стаж</div>
+            </div>
+            <div class="segment-card s3">
+              <div class="segment-title">😐 Средние</div>
+              <div class="segment-pct" style="color:#F57F17">31%</div>
+              <div class="segment-desc">1–3 курса/год<br>Балл 55–70<br>Только обязат.</div>
+            </div>
+            <div class="segment-card s4">
+              <div class="segment-title">😴 Пассивные</div>
+              <div class="segment-pct" style="color:#C62828">17%</div>
+              <div class="segment-desc">0–1 курс/год<br>Просрочки есть<br>Группа риска</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;padding:10px;background:var(--c8);border-radius:8px;font-size:12px;color:#555">
+            💡 <strong>Профиль лидера:</strong> инженер-проектировщик,
+            стаж 3–7 лет, офис СПб или МСК, средний балл 87.3
+          </div>
+        </div>
+      </div>
+
+      <!-- HEATMAP -->
+      <div class="section">
+        <div class="section-title">Тепловая карта компетенций по подразделениям</div>
+        <table class="heatmap" style="width:100%">
+          <thead>
+            <tr>
+              <th style="text-align:left;width:160px">Подразделение</th>
+              <th>BIM</th>
+              <th>AutoCAD / Revit</th>
+              <th>Охрана труда</th>
+              <th>Soft Skills</th>
+              <th>Управление проектами</th>
+              <th>Документооборот</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="hm-label">🏢 Проектирование</td>
+              <td class="hm-high">94%</td>
+              <td class="hm-high">91%</td>
+              <td class="hm-mid">72%</td>
+              <td class="hm-mid">68%</td>
+              <td class="hm-high">85%</td>
+              <td class="hm-low">41%</td>
+            </tr>
+                        <tr>
+              <td class="hm-label">🔍 Стройконтроль</td>
+              <td class="hm-mid">71%</td>
+              <td class="hm-mid">65%</td>
+              <td class="hm-high">88%</td>
+              <td class="hm-low">44%</td>
+              <td class="hm-mid">62%</td>
+              <td class="hm-low">38%</td>
+            </tr>
+            <tr>
+              <td class="hm-label">💼 Консалтинг</td>
+              <td class="hm-mid">68%</td>
+              <td class="hm-low">52%</td>
+              <td class="hm-mid">79%</td>
+              <td class="hm-high">91%</td>
+              <td class="hm-high">87%</td>
+              <td class="hm-mid">61%</td>
+            </tr>
+            <tr>
+              <td class="hm-label">🏛 Административный</td>
+              <td class="hm-low">28%</td>
+              <td class="hm-low">31%</td>
+              <td class="hm-mid">74%</td>
+              <td class="hm-high">82%</td>
+              <td class="hm-mid">66%</td>
+              <td class="hm-high">88%</td>
+            </tr>
+            <tr>
+              <td class="hm-label">🏗 Площадки</td>
+              <td class="hm-low">34%</td>
+              <td class="hm-low">29%</td>
+              <td class="hm-mid">61%</td>
+              <td class="hm-low">22%</td>
+              <td class="hm-low">31%</td>
+              <td class="hm-low">18%</td>
+            </tr>
+          </tbody>
+        </table>
+        <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;align-items:center">
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:16px;height:12px;background:var(--c3);border-radius:2px"></div>
+            <span style="color:#666">&gt; 80% — хорошо</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:16px;height:12px;background:var(--c5);border-radius:2px"></div>
+            <span style="color:#666">60–80% — приемлемо</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="width:16px;height:12px;background:var(--c7);border-radius:2px"></div>
+            <span style="color:#666">&lt; 60% — зона риска</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- КОГОРТНЫЙ АНАЛИЗ -->
+      <div class="section">
+        <div class="section-title">Когортный анализ — новые сотрудники и скорость старта обучения</div>
+        <div style="overflow-x:auto">
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px 12px;font-size:11px;color:#888;text-transform:uppercase;border-bottom:2px solid var(--c8)">Когорта (месяц выхода)</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Кол-во</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">1й курс ≤ 7 дн.</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Мес. 1</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Мес. 2</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Мес. 3</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Мес. 6</th>
+                <th style="padding:8px;text-align:center;font-size:11px;color:#888;border-bottom:2px solid var(--c8)">Статус</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid var(--c8);font-weight:600;color:var(--c1)">Январь 2026</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8)">24</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8);color:var(--c3);font-weight:700">88%</td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c3);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">92%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c4);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">85%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c5);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">79%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c6);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">71%</div></td>
+                <td style="padding:10px;border-bottom:1px solid var(--c8)"><span class="badge green">Активна</span></td>
+              </tr>
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid var(--c8);font-weight:600;color:var(--c1)">Февраль 2026</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8)">18</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8);color:var(--c4);font-weight:700">72%</td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c4);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">84%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c5);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">76%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c6);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">68%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:10px;border-bottom:1px solid var(--c8)"><span class="badge green">Активна</span></td>
+              </tr>
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid var(--c8);font-weight:600;color:var(--c1)">Март 2026</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8)">31</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8);color:var(--yellow);font-weight:700">61%</td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c5);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">71%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c6);color:white;border-radius:4px;padding:4px;text-align:center;font-weight:600">58%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:10px;border-bottom:1px solid var(--c8)"><span class="badge yellow">Наблюд.</span></td>
+              </tr>
+              <tr>
+                <td style="padding:10px 12px;border-bottom:1px solid var(--c8);font-weight:600;color:var(--c1)">Апрель 2026</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8)">27</td>
+                <td style="padding:10px;text-align:center;border-bottom:1px solid var(--c8);color:var(--red);font-weight:700">44%</td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:var(--c7);color:var(--c1);border-radius:4px;padding:4px;text-align:center;font-weight:600">52%</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:6px;border-bottom:1px solid var(--c8)"><div style="background:#E0E0E0;color:#999;border-radius:4px;padding:4px;text-align:center">—</div></td>
+                <td style="padding:10px;border-bottom:1px solid var(--c8)"><span class="badge red">⚠ Риск</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;padding:10px;background:#FFF8E1;border-radius:8px;font-size:13px;border-left:3px solid var(--yellow)">
+          💡 <strong>Инсайт:</strong> Сотрудники, начавшие первый курс в течение 7 дней после выхода,
+          показывают охват на 31% выше через 3 месяца. Апрельская когорта — зона риска.
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА АЛЕРТЫ ==================== -->
+    <div class="tab-page" id="tab-alerts">
+      <div class="section">
+        <div class="section-title">🔔 Активные алерты системы</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#FFEBEE;border-radius:10px;border-left:4px solid var(--red)">
+            <div style="font-size:20px">🔴</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:#C62828;font-size:14px">Критично: 23 просрочки на Площадках</div>
+              <div style="font-size:12px;color:#666;margin-top:4px">Обязательный курс «Охрана труда» просрочен более чем на 14 дней. Требуется эскалация руководителям площадок.</div>
+              <div style="font-size:11px;color:#999;margin-top:6px">Обнаружено: 18.05.2026 · Ответственный: Низовцева</div>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;white-space:nowrap">Открыть список</button>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#FFF3CD;border-radius:10px;border-left:4px solid var(--yellow)">
+            <div style="font-size:20px">🟡</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:#E65100;font-size:14px">Внимание: бюджет использован на 82%</div>
+                            <div style="font-size:12px;color:#666;margin-top:4px">До конца периода 44 дня, остаток 0.9М ₽. При текущем темпе расходов бюджет будет исчерпан досрочно.</div>
+              <div style="font-size:11px;color:#999;margin-top:6px">Обнаружено: 17.05.2026 · Ответственный: Низовцева</div>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;white-space:nowrap">К бюджету</button>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#FFF3CD;border-radius:10px;border-left:4px solid var(--yellow)">
+            <div style="font-size:20px">🟡</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:#E65100;font-size:14px">34 сотрудника: дедлайн через 7 дней</div>
+              <div style="font-size:12px;color:#666;margin-top:4px">Курсы «BIM Основы» и «Документооборот» завершаются 25.05.2026. Рекомендуется отправить напоминание.</div>
+              <div style="font-size:11px;color:#999;margin-top:6px">Обнаружено: 18.05.2026 · Ответственный: Коллега</div>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;white-space:nowrap">Список →</button>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#E3F2FD;border-radius:10px;border-left:4px solid #1565C0">
+            <div style="font-size:20px">🔵</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:#1565C0;font-size:14px">7 заявок без движения более 5 дней</div>
+              <div style="font-size:12px;color:#666;margin-top:4px">Заявки находятся в статусе «На согласовании» и не обновлялись. Требуется проверка и обновление статуса.</div>
+              <div style="font-size:11px;color:#999;margin-top:6px">Обнаружено: 16.05.2026 · Ответственный: Низовцева</div>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;white-space:nowrap">К трекеру</button>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:12px;padding:14px;background:#E8F5E9;border-radius:10px;border-left:4px solid #2E7D32">
+            <div style="font-size:20px">🟢</div>
+            <div style="flex:1">
+              <div style="font-weight:700;color:#2E7D32;font-size:14px">Апрельская когорта: низкий старт обучения</div>
+              <div style="font-size:12px;color:#666;margin-top:4px">44% новых сотрудников (апрель 2026) не начали обязательные курсы в первые 7 дней. Рекомендуется напоминание через HR.</div>
+              <div style="font-size:11px;color:#999;margin-top:6px">Обнаружено: 15.05.2026 · Аналитика системы</div>
+            </div>
+            <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;white-space:nowrap">Подробнее</button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== ВКЛАДКА НАСТРОЙКИ ==================== -->
+    <div class="tab-page" id="tab-settings">
+      <div class="two-col">
+        <div class="section">
+          <div class="section-title">⚙️ Источники данных</div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">Teachbase API</div>
+                <div style="font-size:11px;color:#888">Последнее обновление: 18.05.2026 13:45</div>
+              </div>
+              <span class="badge green">● Активен</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">1С ЗУП (SQL)</div>
+                <div style="font-size:11px;color:#888">Последнее обновление: 18.05.2026 08:00</div>
+              </div>
+              <span class="badge green">● Активен</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">1С ДОК / Бухгалтерия</div>
+                <div style="font-size:11px;color:#888">Последнее обновление: 18.05.2026 08:00</div>
+              </div>
+              <span class="badge green">● Активен</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:#FFF3CD;border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">Битрикс24 REST API</div>
+                <div style="font-size:11px;color:#888">Последнее обновление: 17.05.2026 22:00</div>
+              </div>
+              <span class="badge yellow">⚠ Задержка</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">Трекер заявок (SharePoint)</div>
+                <div style="font-size:11px;color:#888">Последнее обновление: 18.05.2026 13:40</div>
+              </div>
+              <span class="badge green">● Активен</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-title">👥 Управление доступом</div>
+          <div style="display:flex;flex-direction:column;gap:10px">
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">Низовцева</div>
+                <div style="font-size:11px;color:#888">nizovtseva@company.ru</div>
+              </div>
+              <span class="badge green">Администратор</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">Коллега L&D</div>
+                <div style="font-size:11px;color:#888">colleague@company.ru</div>
+              </div>
+              <span class="badge yellow">L&D Специалист</span>
+            </div>
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--c8);border-radius:8px">
+              <div>
+                <div style="font-weight:600;font-size:13px;color:var(--c1)">HRD</div>
+                <div style="font-size:11px;color:#888">hrd@company.ru</div>
+              </div>
+              <span class="badge" style="background:#E3F2FD;color:#1565C0">HRD</span>
+            </div>
+            <button class="btn btn-primary" style="margin-top:8px;width:100%">+ Добавить пользователя</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">🔄 Расписание обновления данных</div>
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Источник</th>
+              <th>Частота</th>
+              <th>Время</th>
+              <th>Следующее обновление</th>
+              <th>Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Teachbase API</td>
+              <td>Каждый час</td>
+              <td>:00 мин.</td>
+              <td>18.05.2026 14:00</td>
+              <td><span class="badge green">✓ OK</span></td>
+            </tr>
+            <tr>
+              <td>1С ЗУП</td>
+              <td>1 раз в день</td>
+              <td>08:00</td>
+              <td>19.05.2026 08:00</td>
+              <td><span class="badge green">✓ OK</span></td>
+            </tr>
+            <tr>
+              <td>1С ДОК/Бух</td>
+              <td>1 раз в день</td>
+              <td>08:00</td>
+              <td>19.05.2026 08:00</td>
+              <td><span class="badge green">✓ OK</span></td>
+            </tr>
+            <tr>
+              <td>Битрикс24</td>
+              <td>Каждые 4 часа</td>
+              <td>:00 мин.</td>
+              <td>18.05.2026 16:00</td>
+              <td><span class="badge yellow">⚠ Задержка</span></td>
+            </tr>
+            <tr>
+              <td>SharePoint</td>
+              <td>Каждые 30 мин.</td>
+              <td>:00/:30</td>
+              <td>18.05.2026 14:30</td>
+              <td><span class="badge green">✓ OK</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- end content -->
+</div><!-- end main -->
+
+<!-- ==================== МОДАЛЬНОЕ ОКНО: БЛОКИРОВКА HRD ==================== -->
+<div class="modal-overlay" id="modal-access">
+  <div class="modal">
+    <div class="modal-icon">🔒</div>
+    <div class="modal-title">Доступ ограничен</div>
+    <div class="modal-text">
+      Этот раздел доступен только специалистам L&D и администратору дашборда.
+    </div>
+    <div class="modal-contact">
+      <strong>Запросите доступ у администратора:</strong>
+      👤 Низовцева<br>
+      📧 nizovtseva@company.ru
+    </div>
+    <div class="modal-btns">
+      <button class="btn btn-outline" onclick="closeModal('modal-access')">Закрыть</button>
+      <button class="btn btn-primary" onclick="requestAccess()">Запросить доступ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== МОДАЛЬНОЕ ОКНО: КАРТОЧКА ЗАЯВКИ ==================== -->
+<div class="modal-overlay" id="modal-request" style="align-items:center">
+   <div class="modal" style="max-width:520px;text-align:left">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;color:var(--c1)">Заявка #047 — Внешнее обучение</div>
+      <button onclick="closeModal('modal-request')"
+        style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>
+    </div>
+
+    <!-- ОСНОВНЫЕ ПОЛЯ -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;margin-bottom:16px">
+      <div><span style="color:#888">Сотрудник:</span><br><strong>Петров С.А.</strong></div>
+      <div><span style="color:#888">Подразделение:</span><br><strong>Стройконтроль / МСК</strong></div>
+      <div><span style="color:#888">Тема:</span><br><strong>Agile в строительных проектах</strong></div>
+      <div><span style="color:#888">Провайдер:</span><br><strong>Школа управления СКОЛКОВО</strong></div>
+      <div><span style="color:#888">Даты:</span><br><strong>12.05.2026 — 16.05.2026</strong></div>
+      <div><span style="color:#888">Стоимость:</span><br><strong>85 000 ₽ ✅ Оплачено</strong></div>
+    </div>
+
+    <!-- СЛОЖНОСТЬ / ТРУДОЁМКОСТЬ -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:#888;margin-bottom:8px;text-transform:uppercase;
+                  letter-spacing:0.8px">
+        Сложность / Трудоёмкость
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap" id="complexity-buttons">
+
+        <button class="complexity-btn" data-size="S"
+          onclick="setComplexity('S', this)"
+          title="S — Простая: до 4 часов, стандартный курс"
+          style="padding:8px 16px;border-radius:8px;border:2px solid var(--c6);
+                 background:white;color:var(--c1);font-size:13px;font-weight:700;
+                 cursor:pointer;transition:all 0.2s;min-width:48px">
+          S
+        </button>
+
+        <button class="complexity-btn active-complexity" data-size="M"
+          onclick="setComplexity('M', this)"
+          title="M — Средняя: 4–16 часов, требует координации"
+          style="padding:8px 16px;border-radius:8px;border:2px solid var(--c3);
+                 background:var(--c3);color:white;font-size:13px;font-weight:700;
+                 cursor:pointer;transition:all 0.2s;min-width:48px">
+          M
+        </button>
+
+        <button class="complexity-btn" data-size="L"
+          onclick="setComplexity('L', this)"
+          title="L — Высокая: 16–40 часов, несколько участников"
+          style="padding:8px 16px;border-radius:8px;border:2px solid var(--c6);
+                 background:white;color:var(--c1);font-size:13px;font-weight:700;
+                 cursor:pointer;transition:all 0.2s;min-width:48px">
+          L
+        </button>
+
+        <button class="complexity-btn" data-size="XL"
+          onclick="setComplexity('XL', this)"
+          title="XL — Очень высокая: 40–80 часов, внешний провайдер + договор"
+          style="padding:8px 16px;border-radius:8px;border:2px solid var(--c6);
+                 background:white;color:var(--c1);font-size:13px;font-weight:700;
+                 cursor:pointer;transition:all 0.2s;min-width:48px">
+          XL
+        </button>
+
+        <button class="complexity-btn" data-size="XXL"
+          onclick="setComplexity('XXL', this)"
+          title="XXL — Максимальная: 80+ часов, длительная программа / сертификация"
+          style="padding:8px 16px;border-radius:8px;border:2px solid var(--c6);
+                 background:white;color:var(--c1);font-size:13px;font-weight:700;
+                 cursor:pointer;transition:all 0.2s;min-width:48px">
+          XXL
+        </button>
+
+      </div>
+
+      <!-- Подсказка под кнопками -->
+      <div id="complexity-hint"
+        style="margin-top:8px;font-size:12px;color:#888;
+               padding:6px 10px;background:var(--c8);border-radius:6px">
+        M — Средняя: 4–16 часов, требует координации
+      </div>
+    </div>
+
+    <!-- СТАТУС -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase">Статус</div>
+      <div class="status-flow">
+        <span class="status-step">Новая</span>
+        <span class="status-arrow">→</span>
+        <span class="status-step">В работе</span>
+        <span class="status-arrow">→</span>
+        <span class="status-step">Согласована</span>
+        <span class="status-arrow">→</span>
+        <span class="status-step active">В процессе</span>
+        <span class="status-arrow">→</span>
+        <span class="status-step">Завершена</span>
+        <span class="status-arrow">→</span>
+        <span class="status-step">Оценка</span>
+      </div>
+    </div>
+
+    <!-- ЖУРНАЛ ИЗМЕНЕНИЙ -->
+    <div style="margin-bottom:12px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase">
+        Журнал изменений
+      </div>
+      <div class="changelog" id="request-changelog">
+        <div class="changelog-item">
+          <div class="changelog-time">18.05 13:22</div>
+          <div class="changelog-text">
+            <strong>Низовцева</strong> → статус изменён на <strong>В процессе</strong>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-time">15.05 10:14</div>
+          <div class="changelog-text">
+            <strong>Низовцева</strong> → сложность установлена:
+            <span style="display:inline-block;padding:1px 8px;background:var(--c3);
+                         color:white;border-radius:4px;font-size:11px;font-weight:700">M</span>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-time">10.05 11:05</div>
+          <div class="changelog-text">
+            <strong>Низовцева</strong> → добавлен номер договора ДОГ-2026-047
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-time">05.05 09:41</div>
+          <div class="changelog-text">
+            <strong>Низовцева</strong> → статус изменён на <strong>Согласована</strong>
+          </div>
+        </div>
+        <div class="changelog-item">
+          <div class="changelog-time">28.04 14:15</div>
+          <div class="changelog-text">
+            <strong>Система</strong> → заявка создана из Битрикс24
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- КОММЕНТАРИЙ -->
+    <div style="margin-bottom:16px">
+      <div style="font-size:11px;color:#888;margin-bottom:6px;text-transform:uppercase">
+        Комментарий
+      </div>
+      <textarea id="request-comment"
+        style="width:100%;padding:8px 12px;border:1px solid var(--c6);
+               border-radius:8px;font-size:13px;font-family:inherit;
+               resize:none;height:60px;color:var(--c1)"
+        placeholder="Добавить комментарий..."></textarea>
+    </div>
+
+    <!-- КНОПКИ -->
+    <div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="btn btn-outline" onclick="closeModal('modal-request')">Закрыть</button>
+      <select class="filter-select" style="border-radius:8px" id="status-select">
+        <option>Изменить статус...</option>
+        <option>В работе</option>
+        <option>На согласовании</option>
+        <option>Одобрена</option>
+        <option>Провайдер выбран</option>
+        <option>Договор подписан</option>
+        <option>Оплачено</option>
+        <option>В процессе</option>
+        <option>Завершена</option>
+        <option>Оценка эффективности</option>
+        <option>Отклонена</option>
+      </select>
+      <button class="btn btn-primary" onclick="saveRequestChanges()">Сохранить</button>
+    </div>
+  </div> 
+</div>
+
+<!-- ==================== JAVASCRIPT ==================== -->
+<script>
+  // --- Навигация по вкладкам ---
+  const pageTitles = {
+    hrd:       '📊 Управленческий дашборд',
+    ld:        '⚙️ Операционный дашборд',
+    analytics: '🔬 Аналитический дашборд',
+    alerts:    '🔔 Алерты и уведомления',
+    settings:  '⚙️ Настройки системы'
+  };
+
+  const currentRole = 'admin';
+
+  const roleAccess = {
+    admin: ['hrd', 'ld', 'analytics', 'alerts', 'settings'],
+    ld:    ['hrd', 'ld', 'alerts'],
+    hrd:   ['hrd']
+  };
+
+  function showTab(tabName, el) {
+    const allowed = roleAccess[currentRole];
+    if (!allowed.includes(tabName)) {
+      document.getElementById('modal-access').classList.add('show');
+      return;
+    }
+    document.querySelectorAll('.tab-page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const page = document.getElementById('tab-' + tabName);
+    if (page) page.classList.add('active');
+    if (el) el.classList.add('active');
+    document.getElementById('page-title').textContent = pageTitles[tabName] || '';
+  }
+
+  // --- Модальные окна ---
+  function closeModal(id) {
+    document.getElementById(id).classList.remove('show');
+  }
+
+  function showRequestDetail() {
+    document.getElementById('modal-request').classList.add('show');
+  }
+
+  function showOverdue() {
+    document.getElementById('modal-overdue').classList.add('show');
+  }
+
+  function requestAccess() {
+    window.location.href =
+      'mailto:nizovtseva@company.ru' +
+      '?subject=Запрос доступа к дашборду L%26D Analytics' +
+      '&body=Здравствуйте! Прошу предоставить доступ к разделам дашборда L%26D Analytics.';
+    closeModal('modal-access');
+  }
+
+  function saveComment() {
+    const textarea = document.querySelector('#modal-request textarea');
+    if (textarea.value.trim()) {
+      const changelog = document.querySelector('#modal-request .changelog');
+      const now = new Date();
+      const time = now.getDate() + '.' +
+        String(now.getMonth()+1).padStart(2,'0') + ' ' +
+        String(now.getHours()).padStart(2,'0') + ':' +
+        String(now.getMinutes()).padStart(2,'0');
+      const newItem = document.createElement('div');
+      newItem.className = 'changelog-item';
+      newItem.innerHTML =
+        '<div class="changelog-time">' + time + '</div>' +
+        '<div class="changelog-text"><strong>Низовцева</strong> → ' +
+        textarea.value + '</div>';
+      changelog.insertBefore(newItem, changelog.firstChild);
+      textarea.value = '';
+    }
+    closeModal('modal-request');
+  }
+
+  // --- КНОПКИ ВКЛАДКИ АЛЕРТЫ ---
+
+  // Универсальная функция для кнопок алертов
+  function handleAlertBtn(type) {
+    switch(type) {
+
+      case 'overdue':
+        // "Открыть список" → список просроченных
+        showOverdue();
+        break;
+
+      case 'budget':
+        // "К бюджету" → переход на вкладку HRD
+        showTab('hrd',
+          document.querySelector('.nav-item[onclick*="hrd"]'));
+        // Небольшая задержка чтобы вкладка успела открыться
+        setTimeout(() => {
+          showModal('modal-budget-info');
+        }, 300);
+        break;
+
+      case 'deadline':
+        // "Список →" → список тех, у кого истекает срок
+        document.getElementById('modal-deadline').classList.add('show');
+        break;
+
+      case 'frozen':
+        // "К трекеру" → переход на операционную вкладку
+        showTab('ld',
+          document.querySelector('.nav-item[onclick*="\'ld\'"]'));
+        break;
+
+      case 'cohort':
+        // "Подробнее" → переход на аналитику
+        showTab('analytics',
+          document.querySelector('.nav-item[onclick*="analytics"]'));
+        break;
+    }
+  }
+
+  // --- Модальное окно: истекают через 7 дней ---
+  // (добавляем динамически если не существует)
+  function ensureDeadlineModal() {
+    if (document.getElementById('modal-deadline')) return;
+    const html = `
+    <div class="modal-overlay" id="modal-deadline">
+      <div class="modal" style="max-width:620px;text-align:left">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <div style="font-size:16px;font-weight:700;color:var(--c1)">⏰ Дедлайн через 7 дней — 34 сотрудника</div>
+          <button onclick="closeModal('modal-deadline')"
+            style="background:none;border:none;font-size:20px;cursor:pointer;color:#999">✕</button>
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <select class="filter-select" style="flex:1">
+            <option>Все курсы</option>
+            <option>BIM Основы</option>
+            <option>Документооборот</option>
+          </select>
+          <select class="filter-select" style="flex:1">
+            <option>Все подразделения</option>
+            <option>Проектирование</option>
+            <option>Стройконтроль</option>
+            <option>Площадки</option>
+          </select>
+        </div>
+        <div style="overflow-x:auto;max-height:300px;overflow-y:auto">
+          <table class="data-table" style="font-size:12px">
+            <thead>
+              <tr>
+                <th>ФИО</th>
+                <th>Подразделение</th>
+                <th>Курс</th>
+                <th>Дедлайн</th>
+                <th>Осталось</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Алексеев П.В.</td>
+                <td>Проектирование / СПб</td>
+                <td>BIM Основы</td>
+                <td>25.05.2026</td>
+                <td><span class="badge yellow">7 дней</span></td>
+              </tr>
+              <tr>
+                <td>Борисова Е.Н.</td>
+                <td>Стройконтроль / МСК</td>
+                <td>Документооборот</td>
+                <td>25.05.2026</td>
+                <td><span class="badge yellow">7 дней</span></td>
+              </tr>
+              <tr>
+                <td>Васильев К.О.</td>
+                <td>Площадка Новосиб.</td>
+                <td>BIM Основы</td>
+                <td>24.05.2026</td>
+                <td><span class="badge yellow">6 дней</span></td>
+              </tr>
+              <tr>
+                <td>Григорьева Т.С.</td>
+                <td>Консалтинг / СПб</td>
+                <td>BIM Основы</td>
+                <td>23.05.2026</td>
+                <td><span class="badge yellow">5 дней</span></td>
+              </tr>
+              <tr>
+                <td>Дмитриев И.А.</td>
+                <td>Административный</td>
+                <td>Документооборот</td>
+                <td>22.05.2026</td>
+                <td><span class="badge red">4 дня</span></td>
+              </tr>
+              <tr>
+                <td>Егорова С.В.</td>
+                <td>Проектирование / МСК</td>
+                <td>BIM Основы</td>
+                <td>22.05.2026</td>
+                <td><span class="badge red">4 дня</span></td>
+              </tr>
+              <tr>
+                <td>Жуков М.Р.</td>
+                <td>Площадка Мурманск</td>
+                <td>BIM Основы</td>
+                <td>21.05.2026</td>
+                <td><span class="badge red">3 дня</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="font-size:12px;color:#888;margin-top:10px;margin-bottom:14px">
+          Показано 7 из 34 записей
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end">
+          <button class="btn btn-outline" onclick="closeModal('modal-deadline')">Закрыть</button>
+          <button class="btn btn-primary"
+            onclick="alert('Напоминания отправлены 34 сотрудникам ✅')">
+            📧 Отправить напоминания всем
+          </button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    // Закрытие по клику на оверлей
+    document.getElementById('modal-deadline').addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('show');
+    });
+  }
+
+  // --- Инициализация кнопок алертов ---
+  // Вызывается после загрузки DOM
+  function initAlertButtons() {
+    ensureDeadlineModal();
+
+    // Находим все кнопки внутри алерт-карточек по порядку
+    const alertBtns = document.querySelectorAll('#tab-alerts .btn-outline');
+    const actions = ['overdue', 'budget', 'deadline', 'frozen', 'cohort'];
+
+    alertBtns.forEach((btn, i) => {
+      if (actions[i]) {
+        btn.addEventListener('click', function() {
+          handleAlertBtn(actions[i]);
+        });
+      }
+    });
+
+    // Кнопка "Отправить напоминания" в модалке просроченных
+    const overdueBtn = document.querySelector('#modal-overdue .btn-primary');
+    if (overdueBtn) {
+      overdueBtn.addEventListener('click', function() {
+        alert('Напоминания отправлены 89 сотрудникам ✅\nОтветственный: Низовцева');
+      });
+    }
+  }
+
+  // --- Закрытие по клику на оверлей ---
+  document.querySelectorAll('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', function(e) {
+      if (e.target === this) this.classList.remove('show');
+    });
+  });
+
+  // --- Закрытие по Escape ---
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.querySelectorAll('.modal-overlay').forEach(m => {
+        m.classList.remove('show');
+      });
+    }
+  });
+
+  // --- Анимация баров при загрузке ---
+  window.addEventListener('load', function() {
+    document.querySelectorAll('.funnel-bar').forEach(bar => {
+      const w = bar.style.width;
+      bar.style.width = '0';
+      setTimeout(() => { bar.style.width = w; }, 300);
+    });
+    // Инициализация кнопок алертов
+    initAlertButtons();
+  });
+  // --- Описания сложности ---
+  const complexityInfo = {
+    'S':   'S — Простая: до 4 часов, стандартный курс',
+    'M':   'M — Средняя: 4–16 часов, требует координации',
+    'L':   'L — Высокая: 16–40 часов, несколько участников',
+    'XL':  'XL — Очень высокая: 40–80 часов, внешний провайдер + договор',
+    'XXL': 'XXL — Максимальная: 80+ часов, длительная программа / сертификация'
+  };
+
+  const complexityColors = {
+    'S':   { bg: '#E8F5E9', border: '#2E7D32', text: '#2E7D32' },
+    'M':   { bg: 'var(--c3)', border: 'var(--c3)', text: 'white' },
+    'L':   { bg: '#FFF8E1', border: '#F57F17', text: '#E65100' },
+    'XL':  { bg: '#FFF3CD', border: '#F5A623', text: '#B45309' },
+    'XXL': { bg: '#FFEBEE', border: '#D0021B', text: '#C62828' }
+  };
+
+  // Текущая сложность (сохраняется между открытиями)
+  let currentComplexity = 'M';
+
+  function setComplexity(size, clickedBtn) {
+    const prev = currentComplexity;
+
+    // Если нажали ту же кнопку — ничего не делаем
+    if (prev === size) return;
+
+    // Сбросить все кнопки
+    document.querySelectorAll('.complexity-btn').forEach(btn => {
+      btn.style.background = 'white';
+      btn.style.borderColor = 'var(--c6)';
+      btn.style.color = 'var(--c1)';
+      btn.classList.remove('active-complexity');
+    });
+
+    // Активировать нажатую
+    const colors = complexityColors[size];
+    clickedBtn.style.background = colors.bg;
+    clickedBtn.style.borderColor = colors.border;
+    clickedBtn.style.color = colors.text;
+    clickedBtn.classList.add('active-complexity');
+
+    // Обновить подсказку
+    document.getElementById('complexity-hint').textContent = complexityInfo[size];
+
+    // Записать в журнал
+    addChangelogEntry(
+      'сложность изменена: ' +
+      '<span style="display:inline-block;padding:1px 8px;background:' +
+      colors.bg + ';color:' + colors.text +
+      ';border:1px solid ' + colors.border +
+      ';border-radius:4px;font-size:11px;font-weight:700">' + prev + '</span>' +
+      ' → ' +
+      '<span style="display:inline-block;padding:1px 8px;background:' +
+      colors.bg + ';color:' + colors.text +
+      ';border:1px solid ' + colors.border +
+      ';border-radius:4px;font-size:11px;font-weight:700">' + size + '</span>'
+    );
+
+    currentComplexity = size;
+  }
+
+  // --- Добавить запись в журнал ---
+  function addChangelogEntry(text) {
+    const changelog = document.getElementById('request-changelog');
+    if (!changelog) return;
+
+    const now = new Date();
+    const time =
+      String(now.getDate()).padStart(2,'0') + '.' +
+      String(now.getMonth()+1).padStart(2,'0') + ' ' +
+      String(now.getHours()).padStart(2,'0') + ':' +
+      String(now.getMinutes()).padStart(2,'0');
+
+    const newItem = document.createElement('div');
+    newItem.className = 'changelog-item';
+    newItem.style.animation = 'fadeIn 0.3s ease';
+    newItem.innerHTML =
+      '<div class="changelog-time">' + time + '</div>' +
+      '<div class="changelog-text"><strong>Низовцева</strong> → ' + text + '</div>';
+
+    changelog.insertBefore(newItem, changelog.firstChild);
+  }
+
+    // --- Сохранить изменения (статус + комментарий) ---
+  function saveRequestChanges() {
+    const textarea = document.getElementById('request-comment');
+    const statusSelect = document.getElementById('status-select');
+    let hasChanges = false;
+
+    // Сохранить новый статус если выбран
+    if (statusSelect.selectedIndex > 0) {
+      const newStatus = statusSelect.value;
+      addChangelogEntry(
+        'статус изменён на <strong>' + newStatus + '</strong>'
+      );
+
+      // Обновить визуальную цепочку статусов
+      document.querySelectorAll('.status-step').forEach(step => {
+        step.classList.remove('active');
+        if (step.textContent.trim() === newStatus ||
+            (newStatus === 'На согласовании' && step.textContent.trim() === 'Согласована') ||
+            (newStatus === 'Оценка эффективности' && step.textContent.trim() === 'Оценка')) {
+          step.classList.add('active');
+        }
+      });
+
+      // Сбросить select
+      statusSelect.selectedIndex = 0;
+      hasChanges = true;
+    }
+
+    // Сохранить комментарий если есть текст
+    if (textarea.value.trim()) {
+      addChangelogEntry(
+        'комментарий: <em style="color:#555">"' + textarea.value.trim() + '"</em>'
+      );
+      textarea.value = '';
+      hasChanges = true;
+    }
+
+    // Показать тост-уведомление
+    if (hasChanges) {
+      showToast('✅ Изменения сохранены в журнале');
+    } else {
+      showToast('ℹ️ Нет новых изменений для сохранения');
+    }
+  }
+
+  // --- Тост-уведомление ---
+  function showToast(message) {
+    // Удалить предыдущий тост если есть
+    const existing = document.getElementById('toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.id = 'toast';
+    toast.textContent = message;
+    toast.style.cssText = `
+      position: fixed;
+      bottom: 32px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--c1);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      z-index: 9999;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      opacity: 0;
+      transition: all 0.3s ease;
+      white-space: nowrap;
+    `;
+    document.body.appendChild(toast);
+
+    // Анимация появления
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        toast.style.opacity = '1';
+        toast.style.transform = 'translateX(-50%) translateY(0)';
+      });
+    });
+
+    // Автоудаление через 3 секунды
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateX(-50%) translateY(20px)';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  }
+
+  // --- Анимация появления новой записи в журнале ---
+  const fadeInStyle = document.createElement('style');
+  fadeInStyle.textContent = `
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .complexity-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 3px 10px rgba(44,85,69,0.2);
+    }
+    .complexity-btn:active {
+      transform: translateY(0);
+    }
+  `;
+  document.head.appendChild(fadeInStyle);
+</script>
+
+</body>
+</html>
